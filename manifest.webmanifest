@@ -1,0 +1,13 @@
+{
+  "name": "Next C bus",
+  "short_name": "C bus",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#062A4F",
+  "theme_color": "#062A4F",
+  "icons": [
+    { "src": "icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

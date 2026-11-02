@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Next C bus</title>
+<meta name="theme-color" content="#062A4F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="C bus">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="config.js"></script>
+<style>
+  :root {
+    --navy: #062A4F;
+    --c: #C8479A;
+    --bg: #EDF1F5;
+    --surface: #FFFFFF;
+    --ink: #0F1D2C;
+    --muted: #56657A;
+    --line: #D3DCE6;
+    --on-navy: #FFFFFF;
+    --on-navy-muted: #B9C8DA;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --navy: #0A2747;
+      --c: #E36CB7;
+      --bg: #06121F;
+      --surface: #0E2135;
+      --ink: #E7EDF4;
+      --muted: #93A3B8;
+      --line: #1F3650;
+      --on-navy: #FFFFFF;
+      --on-navy-muted: #9FB3CC;
+      color-scheme: dark;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { height: 100%; background: var(--bg); }
+  body {
+    margin: 0; min-height: 100%;
+    background: var(--bg); color: var(--ink);
+    font-family: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 1rem; line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .top {
+    background: var(--navy); color: var(--on-navy);
+    padding: calc(env(safe-area-inset-top, 0px) + 1.25rem) 1.25rem 1.25rem;
+    display: flex; align-items: center; gap: 0.9rem;
+  }
+  .roundel {
+    flex: none; width: 3.25rem; height: 3.25rem; border-radius: 50%;
+    background: var(--c); border: 3px solid #fff;
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 1.7rem; color: #fff; line-height: 1;
+  }
+  .top h1 { margin: 0; font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
+  .top p { margin: 0.15rem 0 0; color: var(--on-navy-muted); font-size: 0.92rem; }
+
+  main {
+    max-width: 34rem; margin: 0 auto;
+    padding: 1.25rem 1.25rem calc(env(safe-area-inset-bottom, 0px) + 2rem);
+  }
+  .stop {
+    background: var(--surface);
+    border-left: 6px solid var(--c);
+    border-radius: 0 10px 10px 0;
+    padding: 1rem 1.15rem 1.1rem;
+    margin-bottom: 1rem;
+  }
+  .stop h2 { margin: 0; font-size: 1.05rem; font-weight: 700; }
+  .count {
+    margin: 0.2rem 0 0; display: flex; align-items: baseline; gap: 0.4rem;
+    font-variation-settings: "wdth" 68;
+    font-weight: 850; line-height: 0.95;
+  }
+  .count .num { font-size: clamp(4.25rem, 22vw, 6.5rem); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .count .unit { font-size: 1.6rem; font-weight: 700; color: var(--muted); }
+  .at { margin: 0.35rem 0 0; font-weight: 600; }
+  .later { margin: 0.15rem 0 0; color: var(--muted); font-size: 0.95rem; }
+
+  .dir { margin: 0.1rem 0 0; color: var(--muted); font-size: 0.92rem; }
+  .tag {
+    display: inline-block; vertical-align: 0.15em; margin-left: 0.4rem;
+    font-size: 0.75rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 999px;
+    border: 1.5px solid var(--line); color: var(--muted);
+  }
+  .tag.live { border-color: var(--c); color: var(--c); }
+  .tag.live::before {
+    content: ""; display: inline-block; width: 0.45rem; height: 0.45rem; margin-right: 0.3rem;
+    border-radius: 50%; background: var(--c); vertical-align: 0.05em;
+  }
+  #map {
+    height: 320px; border-radius: 10px; overflow: hidden; margin: 0 0 0.5rem;
+    background: var(--surface); border: 1px solid var(--line);
+  }
+  .map-status { color: var(--muted); font-size: 0.88rem; margin: 0 0 1.25rem; }
+  .bus-icon svg { display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
+  .leaflet-popup-content { font-family: "Archivo", system-ui, sans-serif; font-size: 0.9rem; line-height: 1.45; margin: 0.7rem 0.9rem; }
+  .leaflet-popup-content b { font-weight: 700; }
+  .meta { color: var(--muted); font-size: 0.88rem; margin: 1.25rem 0 0; }
+  .note {
+    background: var(--surface); border-radius: 10px; padding: 1rem 1.15rem;
+    border-left: 6px solid var(--muted);
+  }
+  .note strong { display: block; margin-bottom: 0.25rem; }
+
+  button {
+    font: inherit; font-weight: 700; cursor: pointer;
+    background: var(--navy); color: var(--on-navy);
+    border: 0; border-radius: 999px; padding: 0.8rem 1.4rem; min-height: 44px;
+  }
+  button.quiet { background: transparent; color: var(--ink); border: 2px solid var(--line); }
+  button:focus-visible, a:focus-visible { outline: 3px solid var(--c); outline-offset: 3px; }
+
+  /* Popup shown each time the page opens */
+  dialog {
+    border: 0; padding: 0; margin: auto auto 0; width: 100%; max-width: 34rem;
+    background: var(--surface); color: var(--ink);
+    border-radius: 18px 18px 0 0;
+  }
+  dialog::backdrop { background: rgba(4, 18, 34, 0.55); }
+  dialog[open] { animation: rise 260ms cubic-bezier(.2,.8,.2,1); }
+  @keyframes rise { from { transform: translateY(100%); } to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { dialog[open] { animation: none; } }
+  @media (min-width: 40rem) { dialog { margin: auto; border-radius: 18px; } }
+  .sheet { padding: 1.3rem 1.3rem calc(env(safe-area-inset-bottom, 0px) + 1.3rem); }
+  .sheet h2 { margin: 0 0 0.75rem; font-size: 1.25rem; font-weight: 800; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+         padding: 0.75rem 0; border-top: 1px solid var(--line); }
+  .row .name { font-weight: 600; }
+  .row .when { text-align: right; white-space: nowrap; }
+  .row .when b { font-variation-settings: "wdth" 72; font-weight: 850; font-size: 1.7rem; }
+  .row .when span { display: block; color: var(--muted); font-size: 0.9rem; }
+  .sheet .actions { margin-top: 1rem; display: flex; gap: 0.6rem; }
+  .sheet .actions button { flex: 1; }
+</style>
+</head>
+<body>
+  <header class="top">
+    <div class="roundel" aria-hidden="true">C</div>
+    <div>
+      <h1>C line</h1>
+      <p>Wake Forest / Cuarto / Trader Joe’s</p>
+    </div>
+  </header>
+
+  <main>
+    <div id="map" role="region" aria-label="Map of C line buses"></div>
+    <p class="map-status" id="map-status">Loading…</p>
+    <div id="app" aria-live="polite"><p class="meta">Loading the schedule…</p></div>
+  </main>
+
+  <dialog id="pop" aria-labelledby="pop-title">
+    <div class="sheet">
+      <h2 id="pop-title">Next C bus</h2>
+      <div id="pop-rows"></div>
+      <div class="actions">
+        <button id="pop-close" type="button">Got it</button>
+      </div>
+    </div>
+  </dialog>
+
+<script>
+// ==LOGIC== (pure functions, no DOM)
+const TZ = "America/Los_Angeles"; // Davis, CA. Handles PST and PDT automatically.
+const STOP_NAMES = { "Silo": "Silo at Main Island", "Wake Forest/Cuarto": "Wake Forest at Cuarto" };
+// Silo -> Wake Forest is outbound; Wake Forest -> Silo is inbound.
+const STOP_DIRS = { "Silo": "Outbound to Wake Forest", "Wake Forest/Cuarto": "Inbound to Silo" };
+const WEEKDAYS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+// Same terms as the Unitrans "Term" dropdown. Add new terms here when Unitrans posts them.
+const TERMS = [
+  ["Weekday (Fall Quarter)",         "20261023", "20261204", "weekday"],
+  ["Weekend/Holiday (Fall Quarter)", "20261023", "20261206", "weekend"],
+  ["Finals Service",                 "20261207", "20261211", "any"],
+  ["Weekday (Winter Break)",         "20261214", "20270101", "weekday"],
+  ["Weekend/Holiday (Winter Break)", "20261212", "20270103", "weekend"],
+];
+
+function davisNow(date) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(date).map(x => [x.type, x.value]));
+  return { y: +p.year, m: +p.month, d: +p.day,
+           min: (+p.hour % 24) * 60 + (+p.minute) + (+p.second) / 60 };
+}
+function dayInfo(base, offset) {
+  const dt = new Date(Date.UTC(base.y, base.m - 1, base.d + offset));
+  return {
+    ymd: dt.toISOString().slice(0, 10).replace(/-/g, ""),
+    wd: (dt.getUTCDay() + 6) % 7, // 0 = Monday
+    short: dt.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }),
+  };
+}
+function activeServices(data, ymd, wd) {
+  const s = new Set();
+  for (const c of data.calendar)
+    if (c.start_date <= ymd && ymd <= c.end_date && c[WEEKDAYS[wd]] === "1") s.add(c.service_id);
+  for (const cd of data.calendar_dates)
+    if (cd.date === ymd) cd.exception_type === "1" ? s.add(cd.service_id) : s.delete(cd.service_id);
+  return s;
+}
+function pickTerm(ymd, wd) {
+  const weekend = wd >= 5;
+  const t = TERMS.find(([, a, b, kind]) =>
+    a <= ymd && ymd <= b && (kind === "any" || (kind === "weekend") === weekend));
+  const days = weekend ? "Weekend" : wd === 2 ? "Wednesday" : wd === 4 ? "Friday" : "Mon, Tue, Thu";
+  return { term: t ? t[0] : "Current Unitrans schedule", days };
+}
+function fmtClock(mins) {
+  const h = Math.floor(mins / 60) % 24, m = Math.round(mins % 60);
+  return `${(h % 12) || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+}
+function nextBuses(data, date, n = 3) {
+  const now = davisNow(date);
+  const out = {};
+  for (const label of Object.keys(data.stops)) {
+    const seen = new Set(), list = [];
+    for (let off = -1; off <= 7; off++) {
+      const day = dayInfo(now, off);
+      const svc = activeServices(data, day.ymd, day.wd);
+      for (const [sid, t, tid] of data.stops[label]) {
+        if (!svc.has(sid)) continue;
+        const [h, m] = t.split(":").map(Number);
+        const abs = off * 1440 + h * 60 + m;      // minutes from Davis midnight today
+        const diff = abs - now.min;
+        if (diff < -0.5 || seen.has(abs)) continue;
+        seen.add(abs);
+        const dayOff = Math.floor(abs / 1440);
+        list.push({ diff, clock: fmtClock(((abs % 1440) + 1440) % 1440),
+                    dayOff, dayShort: dayInfo(now, dayOff).short, tripId: tid });
+      }
+    }
+    list.sort((a, b) => a.diff - b.diff);
+    out[label] = list.slice(0, n);
+  }
+  const today = dayInfo(now, 0);
+  const svcToday = activeServices(data, today.ymd, today.wd);
+  const runsToday = Object.values(data.stops).some(l => l.some(([sid]) => svcToday.has(sid)));
+  return { now, today, runsToday, stops: out, ...pickTerm(today.ymd, today.wd) };
+}
+function countdown(b) {
+  const mins = Math.max(0, Math.floor(b.diff));
+  if (b.dayOff !== 0) return { num: b.clock.split(" ")[0], unit: `${b.clock.split(" ")[1]} ${b.dayShort}` };
+  if (mins === 0) return { num: "Due", unit: "" };
+  if (mins >= 100) return { num: b.clock.split(" ")[0], unit: b.clock.split(" ")[1] };
+  return { num: String(mins), unit: "min" };
+}
+
+// Live predictions (from the Worker) for each stop, in minutes from now.
+function livePredictions(data, live, nowSec) {
+  const L = data.live || {};
+  const out = {};
+  const splitDirs = L.label_dir && L.label_dir["Silo"] !== L.label_dir["Wake Forest/Cuarto"];
+  for (const label of Object.keys(data.stops)) {
+    const ids = new Set((L.targets || {})[label] || []);
+    const want = (L.label_dir || {})[label];
+    const seen = new Set(), list = [];
+    for (const u of (live && live.updates) || []) {
+      const trip = (L.trips || {})[u.tripId];
+      const dir = trip ? trip[0] : (u.directionId != null ? String(u.directionId) : null);
+      if (splitDirs && want != null && dir != null && dir !== want) continue;
+      for (const st of u.stops || []) {
+        if (!ids.has(st.stopId)) continue;
+        if (trip && st.seq === trip[1]) continue;          // final stop = arrival only
+        const t = st.dep || st.arr;
+        if (!t) continue;
+        const diff = (t - nowSec) / 60;
+        if (diff < -0.5 || diff > 180 || seen.has(u.tripId)) continue;
+        seen.add(u.tripId);
+        list.push({ diff, t, live: true, vehicleId: u.vehicleId, tripId: u.tripId });
+      }
+    }
+    out[label] = list.sort((a, b) => a.diff - b.diff);
+  }
+  return out;
+}
+function clockFromEpoch(sec) {
+  return new Date(sec * 1000).toLocaleTimeString("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit" });
+}
+// Live predictions replace the scheduled time for the same trip today; everything sorted by time.
+function mergeBuses(scheduled, liveList, n = 3) {
+  const liveTrips = new Set((liveList || []).map(b => b.tripId));
+  const liveRows = (liveList || []).map(b => ({ diff: b.diff, clock: clockFromEpoch(b.t), dayOff: 0,
+                                                 dayShort: "", live: true, vehicleId: b.vehicleId, tripId: b.tripId }));
+  const rest = scheduled.filter(b => !(b.dayOff === 0 && liveTrips.has(b.tripId))).map(b => ({ ...b, live: false }));
+  return [...liveRows, ...rest].sort((a, b) => a.diff - b.diff).slice(0, n);
+}
+function vehicleDirection(data, v) {
+  const L = data.live || {};
+  const trip = (L.trips || {})[v.tripId];
+  const dir = trip ? trip[0] : (v.directionId != null ? String(v.directionId) : null);
+  if (dir == null || !L.label_dir || L.label_dir["Silo"] === L.label_dir["Wake Forest/Cuarto"]) return "C line";
+  if (dir === L.label_dir["Silo"]) return "Outbound to Wake Forest";
+  if (dir === L.label_dir["Wake Forest/Cuarto"]) return "Inbound to Silo";
+  return "C line";
+}
+// ==END==
+
+const app = document.getElementById("app");
+const pop = document.getElementById("pop");
+let data = null, hiddenAt = null, live = null, liveError = null;
+const LIVE_URL = (window.LIVE_URL || "").replace(/\/+$/, "");
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const whenText = b => b.dayOff !== 0 ? `${b.dayShort} ${b.clock}`
+  : Math.floor(b.diff) <= 0 ? `${b.clock}, leaving now` : `${b.clock}, in ${Math.floor(b.diff)} min`;
+
+function render() {
+  const r = nextBuses(data, new Date());
+  const nowSec = Date.now() / 1000;
+  const freshLive = live && nowSec - live.fetched < 120 ? live : null;
+  const lp = freshLive ? livePredictions(data, freshLive, nowSec) : {};
+  for (const label of Object.keys(r.stops)) {
+    const sched = nextBuses(data, new Date(), 8).stops[label];
+    r.stops[label] = mergeBuses(sched, lp[label]);
+  }
+  renderMap(freshLive);
+  const nowLabel = new Date().toLocaleTimeString("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+  let html = "";
+  if (!r.runsToday) {
+    html += `<div class="note stop"><strong>No C service today</strong>${
+      r.today.wd >= 5 ? "The C line doesn’t run on weekends." : "Today is a holiday or schedule exception."
+    } Showing the next buses.</div>`;
+  }
+  for (const [label, buses] of Object.entries(r.stops)) {
+    const name = STOP_NAMES[label] || label;
+    if (!buses.length) {
+      html += `<section class="stop"><h2>${esc(name)}</h2><p class="dir">${esc(STOP_DIRS[label] || "")}</p><p class="at">No buses in the next week.</p></section>`;
+      continue;
+    }
+    const c = countdown(buses[0]);
+    const later = buses.slice(1).map(b => (b.dayOff ? `${b.dayShort} ${b.clock}` : b.clock) + (b.live ? " (live)" : "")).join(", ");
+    const tag = buses[0].live ? `<span class="tag live">Live</span>` : `<span class="tag">Scheduled</span>`;
+    html += `<section class="stop">
+      <h2>${esc(name)}${tag}</h2>
+      <p class="dir">${esc(STOP_DIRS[label] || "")}</p>
+      <p class="count"><span class="num">${esc(c.num)}</span><span class="unit">${esc(c.unit)}</span></p>
+      <p class="at">Leaves ${esc(buses[0].dayOff ? buses[0].dayShort + " " : "")}${esc(buses[0].clock)}</p>
+      ${later ? `<p class="later">Then ${esc(later)}</p>` : ""}
+    </section>`;
+  }
+  html += `<p class="meta">${esc(r.term)}, ${esc(r.days)}. Davis time ${esc(nowLabel)}. ${freshLive ? "Live times come from bus GPS." : "Scheduled times; buses can run late."}</p>`;
+  html += `<p><button class="quiet" type="button" id="show-pop">Show popup</button></p>`;
+  app.innerHTML = html;
+  document.getElementById("show-pop").onclick = showPop;
+
+  document.getElementById("pop-rows").innerHTML = Object.entries(r.stops).map(([label, b]) => `
+    <div class="row"><span class="name">${esc(STOP_NAMES[label] || label)}<br><small class="dir">${esc(STOP_DIRS[label] || "")}${b.length && b[0].live ? " · live" : ""}</small></span>
+      <span class="when">${b.length ? `<b>${esc(countdown(b[0]).num)} ${esc(countdown(b[0]).unit)}</b><span>${esc(whenText(b[0]))}</span>` : "None this week"}</span>
+    </div>`).join("");
+}
+
+// ---------- Map ----------
+let map = null, busLayer = null;
+function tileUrl() {
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  return `https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`;
+}
+function initMap() {
+  if (map || !window.L || !data.live) return;
+  map = L.map("map", { zoomControl: false, attributionControl: true });
+  L.control.zoom({ position: "bottomleft" }).addTo(map);
+  L.tileLayer(tileUrl(), {
+    maxZoom: 19, subdomains: "abcd",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  }).addTo(map);
+  const cColor = getComputedStyle(document.documentElement).getPropertyValue("--c").trim() || "#C8479A";
+  const bounds = [];
+  for (const pts of Object.values(data.live.shapes || {})) {
+    L.polyline(pts, { color: cColor, weight: 4, opacity: 0.85 }).addTo(map);
+    bounds.push(...pts);
+  }
+  const targets = new Set(Object.values(data.live.targets || {}).flat());
+  for (const [sid, [name, lat, lon]] of Object.entries(data.live.stops || {})) {
+    const big = targets.has(sid);
+    L.circleMarker([lat, lon], {
+      radius: big ? 7 : 4, color: big ? cColor : "#ffffff", weight: big ? 3 : 2,
+      fillColor: big ? "#ffffff" : cColor, fillOpacity: 1,
+    }).bindTooltip(name, { direction: "top" }).addTo(map);
+    if (!bounds.length) bounds.push([lat, lon]);
+  }
+  if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
+  busLayer = L.layerGroup().addTo(map);
+}
+function busIcon(bearing) {
+  const rot = Number.isFinite(bearing) ? bearing : 0;
+  return L.divIcon({
+    className: "bus-icon", iconSize: [30, 30], iconAnchor: [15, 15],
+    html: `<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
+      <circle cx="15" cy="15" r="13" fill="#062A4F" stroke="#fff" stroke-width="2"/>
+      <path d="M15 6 L21 19 L15 16 L9 19 Z" fill="#fff" transform="rotate(${rot} 15 15)"/></svg>`,
+  });
+}
+function renderMap(freshLive) {
+  initMap();
+  const status = document.getElementById("map-status");
+  if (!map) { status.textContent = "Map appears after the schedule is rebuilt."; return; }
+  busLayer.clearLayers();
+  if (!LIVE_URL) { status.textContent = "Live GPS is off. Add your Worker address to config.js to see buses move."; return; }
+  if (!freshLive) { status.textContent = liveError ? `Live GPS unavailable: ${liveError}` : "Connecting to live GPS…"; return; }
+  const now = Date.now() / 1000;
+  const names = data.live.stops || {};
+  for (const v of freshLive.vehicles) {
+    const ago = v.ts ? Math.max(0, Math.round(now - v.ts)) : null;
+    const next = v.stopId && names[v.stopId] ? names[v.stopId][0] : "Unknown";
+    L.marker([v.lat, v.lon], { icon: busIcon(v.bearing), title: `Bus ${v.label || v.id}` })
+      .bindPopup(`<b>C line, bus ${esc(v.label || v.id)}</b><br>${esc(vehicleDirection(data, v))}<br>
+        Next stop: ${esc(next)}<br>Last GPS ping: ${ago == null ? "unknown" : ago < 60 ? ago + " seconds ago" : Math.round(ago / 60) + " min ago"}`)
+      .addTo(busLayer);
+  }
+  const n = freshLive.vehicles.length;
+  const age = Math.round(now - freshLive.fetched);
+  status.textContent = n
+    ? `${n} C line bus${n > 1 ? "es" : ""} on the map. Updated ${age < 5 ? "just now" : age + " seconds ago"}. Tap a bus for details.`
+    : "No C line buses are reporting GPS right now.";
+}
+
+// ---------- Live polling ----------
+async function pollLive() {
+  if (!LIVE_URL || !data || !data.live || document.hidden) return;
+  try {
+    const res = await fetch(`${LIVE_URL}/live?route=${encodeURIComponent(data.live.route_ids.join(","))}`, { cache: "no-store" });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || res.status);
+    live = body; liveError = null;
+  } catch (e) {
+    liveError = String(e.message || e);
+  }
+  render();
+}
+
+function showPop() {
+  render();
+  if (!pop.open) pop.showModal();
+}
+document.getElementById("pop-close").onclick = () => pop.close();
+pop.addEventListener("click", e => { if (e.target === pop) pop.close(); });
+
+async function load() {
+  try {
+    const res = await fetch("schedule.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error(res.status);
+    data = await res.json();
+  } catch (e) {
+    app.innerHTML = `<div class="note"><strong>The schedule hasn’t been built yet</strong>
+      In your GitHub repo, open the Actions tab, choose “Update schedule”, and select Run workflow.
+      Reload this page a minute after it finishes.</div>`;
+    return false;
+  }
+  return true;
+}
+
+(async () => {
+  if (!(await load())) return;
+  render();
+  await Promise.race([pollLive(), new Promise(r => setTimeout(r, 2500))]);
+  showPop();                          // pop up every time the page opens
+  setInterval(render, 15000);         // keep countdowns current
+  setInterval(pollLive, 15000);       // live GPS every 15 seconds
+})();
+
+// Reopening the app from the home screen or switching back to the tab shows the popup again.
+document.addEventListener("visibilitychange", async () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (!data) return;
+  if (hiddenAt && Date.now() - hiddenAt > 60000) {
+    await load();
+    await Promise.race([pollLive(), new Promise(r => setTimeout(r, 2500))]);
+    showPop();
+  } else { render(); pollLive(); }
+});
+</script>
+</body>
+</html>

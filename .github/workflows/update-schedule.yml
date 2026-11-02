@@ -1,0 +1,23 @@
+name: Update schedule
+on:
+  schedule:
+    - cron: "0 11 * * *"     # daily, 3 AM PST / 4 AM PDT
+  workflow_dispatch: {}      # "Run workflow" button in the Actions tab
+  push:
+    paths: ["build_schedule.py", "c_line_alert.py", ".github/workflows/update-schedule.yml"]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python build_schedule.py
+      - name: Save schedule.json if it changed
+        run: |
+          git config user.name "chanakatb"
+          git config user.email "103673276+chanakatb@users.noreply.github.com"
+          git add schedule.json
+          git diff --staged --quiet || (git commit -m "Update C line schedule" && git push)
