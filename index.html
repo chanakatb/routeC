@@ -106,6 +106,10 @@
     height: 320px; border-radius: 10px; overflow: hidden; margin: 0 0 0.5rem;
     background: var(--surface); border: 1px solid var(--line);
   }
+  @media (prefers-color-scheme: dark) {
+    /* OpenStreetMap only has light tiles, so darken them to match the page */
+    :root:not([data-theme="light"]) #map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9); }
+  }
   .map-status { color: var(--muted); font-size: 0.88rem; margin: 0 0 1.25rem; }
   .bus-icon svg { display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
   .leaflet-popup-content { font-family: "Archivo", system-ui, sans-serif; font-size: 0.9rem; line-height: 1.45; margin: 0.7rem 0.9rem; }
@@ -366,17 +370,14 @@ function render() {
 
 // ---------- Map ----------
 let map = null, busLayer = null;
-function tileUrl() {
-  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-  return `https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`;
-}
 function initMap() {
   if (map || !window.L || !data.live) return;
   map = L.map("map", { zoomControl: false, attributionControl: true });
   L.control.zoom({ position: "bottomleft" }).addTo(map);
-  L.tileLayer(tileUrl(), {
-    maxZoom: 19, subdomains: "abcd",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  // OpenStreetMap tiles need no API key (CARTO's now do)
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(map);
   const cColor = getComputedStyle(document.documentElement).getPropertyValue("--c").trim() || "#C8479A";
   const bounds = [];
