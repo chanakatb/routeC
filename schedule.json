@@ -6,7 +6,7 @@
    "monday": "1",
    "saturday": "0",
    "service_id": "1",
-   "start_date": "20261023",
+   "start_date": "20261122",
    "sunday": "0",
    "thursday": "1",
    "tuesday": "1",
@@ -18,7 +18,7 @@
    "monday": "0",
    "saturday": "0",
    "service_id": "3",
-   "start_date": "20261023",
+   "start_date": "20261122",
    "sunday": "0",
    "thursday": "0",
    "tuesday": "0",
@@ -30,7 +30,7 @@
    "monday": "0",
    "saturday": "0",
    "service_id": "5",
-   "start_date": "20261023",
+   "start_date": "20261122",
    "sunday": "0",
    "thursday": "0",
    "tuesday": "0",
@@ -74,11 +74,6 @@
   }
  ],
  "calendar_dates": [
-  {
-   "date": "20261111",
-   "exception_type": "2",
-   "service_id": "3"
-  },
   {
    "date": "20261125",
    "exception_type": "2",
